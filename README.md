@@ -50,7 +50,7 @@ No servers to deploy to try it locally: `git clone`, `npm install`, `npm run dem
 
 ## Why you can trust (or not trust) it
 
-Read the [threat model](docs/THREAT_MODEL.md) before relying on it. The short version: by design the server sees only a hash of the code and sealed blobs (a test records every byte it sees and finds no content), a server that alters the handshake is detected unless it knows the code, and the main residual risk is the pairing code leaking through whatever channel you share it on. This is the author's analysis and has not been independently audited. Peer identity is "whoever knew the code at pairing time"; there is no long-term key pinning yet.
+Read the [threat model](docs/THREAT_MODEL.md) before relying on it. The short version: by design the server sees a hash of the code, sealed blobs, client IPs and timing (but not content) (a test records every byte it sees and finds no content), a server that alters the handshake is detected unless it knows the code, and the main residual risk is the pairing code leaking through whatever channel you share it on. This is the author's analysis and has not been independently audited. Peer identity is "whoever knew the code at pairing time"; there is no long-term key pinning yet.
 
 ## Library
 
