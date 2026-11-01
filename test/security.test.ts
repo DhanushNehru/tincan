@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { test } from "node:test";
+import { after, test } from "node:test";
+import nodeDataChannel from "node-datachannel";
 import { host, join, Session, type PatchOutcome, type Task } from "../src/index.js";
 import { deriveKeys, seal } from "../src/pairing.js";
 import { SignalingClient } from "../src/signaling/client.js";
@@ -79,3 +80,6 @@ test("guessing codes is throttled and a guest with the wrong code fails", async 
     await h.cancel();
   } finally { real.stop(); }
 });
+
+// Release the native WebRTC threads so the test process can exit (Node 24 otherwise waits on them).
+after(() => nodeDataChannel.cleanup());
