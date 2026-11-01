@@ -69,7 +69,7 @@ Every exported function and class has TSDoc. `onPatch` is your consent gate: wit
 ## Install notes
 
 - Requires Node 22 or newer.
-- WebRTC comes from the `node-datachannel` npm package, which downloads a prebuilt native binary at install time. It needs network access during `npm install`, and platforms without a prebuilt binary need a C++ toolchain. Only linux-x64 is tested here; macOS and Windows are expected to work but are unverified.
+- WebRTC comes from the `node-datachannel` npm package, which downloads a prebuilt native binary at install time. It needs network access during `npm install`, and platforms without a prebuilt binary need a C++ toolchain. The hosted CI test suite (real loopback WebRTC) passes on ubuntu (Node 22 and 24), macOS and Windows (Node 22). That is automated loopback testing only: manual use on macOS and Windows, other architectures, and real networks are not verified.
 - Not published to npm yet.
 
 ## Documentation
