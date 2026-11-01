@@ -86,6 +86,9 @@ export class Link extends EventEmitter {
       const fail = (why: string) => { this.close(why); reject(new Error(why)); };
       const timer = setTimeout(() => fail("Peer did not confirm in time"), ms);
       this.gate = { expected: theirs, done: (ok) => { clearTimeout(timer); if (ok) resolve(); else fail("Peer failed key confirmation (wrong code or tampered handshake)"); } };
+      // The peer may confirm before this side starts waiting; that first frame was buffered as an early message.
+      const early = this.early.shift();
+      if (early) { const { done } = this.gate; this.gate = undefined; done(tagsEqual(early.toString("utf8"), theirs)); }
       const sendTag = () => this.dc.sendMessageBinary(Buffer.concat([Buffer.from([0]), Buffer.from(confirmTag(keys, role, hostFp, guestFp))]));
       if (this.dc.isOpen()) sendTag(); else this.dc.onOpen(sendTag);
     });

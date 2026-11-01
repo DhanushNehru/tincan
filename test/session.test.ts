@@ -183,3 +183,17 @@ test("patches are handled one at a time, so a second patch sees the first one's 
     assert.equal(await readFile(path.join(root, "f.txt"), "utf8"), "v1");
   } finally { p.close(); }
 });
+
+test("a peer's hello that arrives before the local session exists is not lost", async () => {
+  const { host, join, Session } = await import("../src/index.js");
+  const { ICE } = await import("./helpers.js");
+  const h = await host({ signalingUrl: sig.url, ...ICE });
+  const [guestLink, hostLink] = await Promise.all([join(h.code, { signalingUrl: sig.url, ...ICE }), h.connected]);
+  const a = new Session(hostLink, { name: "early" });
+  await new Promise((r) => setTimeout(r, 300));            // a's hello is now buffered on the guest link
+  const b = new Session(guestLink, { name: "late" });
+  try {
+    const [peer] = await once<[{ name: string }]>(b, "ready");   // listener added right after construction
+    assert.equal(peer.name, "early");
+  } finally { a.close(); b.close(); }
+});

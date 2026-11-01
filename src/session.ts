@@ -75,10 +75,12 @@ export class Session extends EventEmitter {
     return super.on(event, listener as (...args: unknown[]) => void);
   }
 
-  /** Start a session on an already-authenticated link. Sends the hello and begins heartbeats. */
+  /** Start a session on an already-authenticated link. Sends the hello and begins heartbeats. Add event listeners in the same tick so no early event is missed. */
   constructor(private readonly link: Link, private readonly opts: SessionOptions = {}) {
     super();
-    link.on("message", (data) => this.onMessage(data));
+    // Attach after the caller has had a chance to add its own listeners: the link replays frames that arrived early,
+    // and replaying them inside this constructor would emit `ready`/`task` events nobody can hear yet.
+    queueMicrotask(() => link.on("message", (data) => this.onMessage(data)));
     link.on("close", (reason) => this.shutdown(reason));
     const beat = opts.heartbeatMs ?? 5000;
     const offlineAfter = opts.offlineAfterMs ?? beat * 3;

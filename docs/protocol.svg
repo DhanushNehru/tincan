@@ -9,7 +9,8 @@
 <text x="760" y="228" text-anchor="middle" font-size="12" fill="#9fb3c8">tincan join CODE</text>
 <rect x="320" y="40" width="260" height="80" rx="10" fill="#2a2330" stroke="#c78bff" stroke-width="2"/>
 <text x="450" y="72" text-anchor="middle" font-weight="bold">Signaling server</text>
-<text x="450" y="96" text-anchor="middle" font-size="12" fill="#c9b3e0">sees room id, sealed blobs, IPs, timing - no content</text>
+<text x="450" y="94" text-anchor="middle" font-size="12" fill="#c9b3e0">sees room id, sealed blobs,</text>
+<text x="450" y="110" text-anchor="middle" font-size="12" fill="#c9b3e0">IPs and timing - no content</text>
 <path d="M140 170 L360 120" stroke="#c78bff" stroke-width="2" fill="none" stroke-dasharray="6 5"/>
 <path d="M760 170 L540 120" stroke="#c78bff" stroke-width="2" fill="none" stroke-dasharray="6 5"/>
 <text x="60" y="150" font-size="12" fill="#c9b3e0">1. sealed offer</text>
