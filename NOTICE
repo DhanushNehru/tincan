@@ -1,0 +1,11 @@
+tincan-agents is original code under the MIT license (see LICENSE).
+
+It depends at runtime on third-party software that keeps its own license:
+
+  node-datachannel  (MPL-2.0)  https://github.com/murat-dogan/node-datachannel
+    Node.js bindings for libdatachannel (MPL-2.0), which provides the WebRTC
+    data channel, ICE, DTLS and SCTP implementation. We use it unmodified
+    as an npm dependency and do not copy its source into this repository.
+
+Development-only tools (TypeScript, ESLint, typescript-eslint, @types/node) are
+not shipped in the published package.

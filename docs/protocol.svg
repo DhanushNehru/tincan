@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="420" viewBox="0 0 900 420" font-family="DejaVu Sans, Arial, sans-serif">
+<rect width="900" height="420" fill="#0f1720"/>
+<g fill="#e6edf3" font-size="15">
+<rect x="40" y="170" width="200" height="90" rx="10" fill="#1b2a3a" stroke="#4aa3ff" stroke-width="2"/>
+<text x="140" y="205" text-anchor="middle" font-weight="bold">Agent A (host)</text>
+<text x="140" y="228" text-anchor="middle" font-size="12" fill="#9fb3c8">tincan host</text>
+<rect x="660" y="170" width="200" height="90" rx="10" fill="#1b2a3a" stroke="#4aa3ff" stroke-width="2"/>
+<text x="760" y="205" text-anchor="middle" font-weight="bold">Agent B (guest)</text>
+<text x="760" y="228" text-anchor="middle" font-size="12" fill="#9fb3c8">tincan join CODE</text>
+<rect x="320" y="40" width="260" height="80" rx="10" fill="#2a2330" stroke="#c78bff" stroke-width="2"/>
+<text x="450" y="72" text-anchor="middle" font-weight="bold">Signaling server</text>
+<text x="450" y="96" text-anchor="middle" font-size="12" fill="#c9b3e0">sees room id + sealed blobs only</text>
+<path d="M140 170 L360 120" stroke="#c78bff" stroke-width="2" fill="none" stroke-dasharray="6 5"/>
+<path d="M760 170 L540 120" stroke="#c78bff" stroke-width="2" fill="none" stroke-dasharray="6 5"/>
+<text x="60" y="150" font-size="12" fill="#c9b3e0">1. sealed offer</text>
+<text x="840" y="150" font-size="12" fill="#c9b3e0" text-anchor="end">2. sealed answer</text>
+<path d="M240 215 L660 215" stroke="#3fb950" stroke-width="4" fill="none"/>
+<polygon points="240,215 254,208 254,222" fill="#3fb950"/><polygon points="660,215 646,208 646,222" fill="#3fb950"/>
+<text x="450" y="205" text-anchor="middle" fill="#3fb950" font-weight="bold">3. WebRTC data channel (DTLS / SCTP)</text>
+<text x="450" y="238" text-anchor="middle" font-size="12" fill="#9fb3c8">context sync, task handoff, patch exchange, heartbeat</text>
+<rect x="60" y="320" width="780" height="70" rx="8" fill="#161f29" stroke="#30404f"/>
+<text x="80" y="347" font-size="13" fill="#e6edf3">Pairing code K7Q2-M9XD-4TFR is shared out of band. It never reaches the server:</text>
+<text x="80" y="370" font-size="13" fill="#9fb3c8">room id = hash(code); handshake sealed with AES-256-GCM key from code; fingerprints confirmed with an HMAC after connect.</text>
+</g></svg>
