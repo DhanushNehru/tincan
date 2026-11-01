@@ -18,3 +18,30 @@ Status key: **Tested** = run automatically or by hand with the evidence named. *
 Start `tincan serve` on a public host, run `tincan host --stun ...` on one network and `tincan join` on another, and open an issue with the two NAT types (for example "home cable router" and "phone hotspot"), the outcome, and the time to connect. Use synthetic data only.
 
 We have not simulated NATs in this repository. Results from network namespaces or similar tools would be labelled **simulated**, not real NAT proof.
+
+## Runbook: a real two-machine, two-network run
+
+This produces a result you can put in the table above. Use synthetic data only. Nothing here is automated, and the project has not run it yet.
+
+1. Machine A and machine B must be on different networks (for example home Wi-Fi and a phone hotspot). Both need Node 22+ and `npm i -g tincan-agents` or a checkout of this repo (`npm ci && npm run build`).
+2. Run the signaling server somewhere both can reach, over HTTPS if it is on the public internet (see `SELF_HOSTING.md`). The server only sees room ids, IPs, timing and sealed blobs.
+3. On A: `tincan host --server URL --root ./a-dir --stun stun:stun.l.google.com:19302`. It prints a pairing code.
+4. On B: `tincan join CODE --server URL --root ./b-dir --stun stun:stun.l.google.com:19302`.
+5. Record the outcome. Connected means a `ready` event on both sides. Note the time from `join` to `ready`, then send a task handoff and a small patch to check data flows both ways.
+6. Record each side's NAT type as best you know it (home router, carrier-grade NAT on a hotspot, corporate). Do not guess "symmetric"; if the connection fails, say only that it failed.
+7. Open an issue titled "NAT result: <A network> to <B network>" with: tincan version, OS and Node version on each side, STUN servers used, outcome, time to connect.
+
+Result template (copy into the issue):
+
+| Field | Value |
+|---|---|
+| tincan version | |
+| Peer A: OS / Node / network type | |
+| Peer B: OS / Node / network type | |
+| STUN / TURN used | |
+| Outcome (connected / failed / timed out) | |
+| Time from join to ready | |
+| Handoff and patch exchanged both ways | |
+| Notes | |
+
+For a demo video of a real run, record both terminals side by side and say in the caption which networks were used.
