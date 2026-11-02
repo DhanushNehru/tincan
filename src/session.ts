@@ -4,7 +4,16 @@ import type { Link } from "./link.js";
 import { applyPatch, previewPatch, validatePatch, type Conflict, type Patch } from "./patch.js";
 
 /** Protocol limits enforced on every received message. */
-export const LIMITS = { keyLength: 128, keys: 500, valueBytes: 64 * 1024, textLength: 16 * 1024, pendingTasks: 50 } as const;
+export const LIMITS = {
+  keyLength: 128,
+  keys: 500,
+  valueBytes: 64 * 1024,
+  textLength: 16 * 1024,
+  pendingTasks: 50,
+  customTypeLength: 128,
+  customMessageBytes: 64 * 1024,
+  customMessagesPerMinute: 60,
+} as const;
 
 /** A context entry. Last writer wins by `(clock, by)`. */
 export interface ContextEntry { value: unknown; clock: number; by: string }
@@ -41,6 +50,9 @@ export interface SessionOptions {
 }
 
 type Frame = { seq: number; t: string; [k: string]: unknown };
+type CustomMessageHandler = (payload: unknown) => void | Promise<void>;
+
+const CUSTOM_TYPE = /^x-[a-z0-9][a-z0-9._-]*\/[a-zA-Z0-9][a-zA-Z0-9._-]*(?:\/[a-zA-Z0-9][a-zA-Z0-9._-]*)*$/;
 
 /**
  * Agent-to-agent session on top of an authenticated {@link Link}: shared context, task handoff,
@@ -54,6 +66,9 @@ export class Session extends EventEmitter {
   private readonly id = randomUUID();
   private readonly ctx = new Map<string, ContextEntry>();
   private readonly tasks = new Map<string, Task>();
+  private readonly customHandlers = new Map<string, CustomMessageHandler>();
+  private readonly sentCustomMessages: number[] = [];
+  private readonly receivedCustomMessages: number[] = [];
   private ended = false;
   private patchQueue: Promise<void> = Promise.resolve();
   private lastSeen = Date.now();
@@ -62,7 +77,7 @@ export class Session extends EventEmitter {
 
   /**
    * Events: `ready` (peer said hello), `context` (key, entry, local), `task`, `taskReply`, `patchOutcome`,
-   * `presence` ("online" | "offline") and `close` (reason).
+   * `presence` ("online" | "offline"), `customError` (type, error) and `close` (reason).
    */
   override on(event: "ready", listener: (peer: { name: string }) => void): this;
   override on(event: "context", listener: (key: string, entry: ContextEntry, local: boolean) => void): this;
@@ -70,6 +85,7 @@ export class Session extends EventEmitter {
   override on(event: "taskReply", listener: (reply: TaskReply) => void): this;
   override on(event: "patchOutcome", listener: (outcome: PatchOutcome) => void): this;
   override on(event: "presence", listener: (state: Presence) => void): this;
+  override on(event: "customError", listener: (type: string, error: unknown) => void): this;
   override on(event: "close", listener: (reason: string) => void): this;
   override on(event: string, listener: (...args: never[]) => void): this {
     return super.on(event, listener as (...args: unknown[]) => void);
@@ -126,6 +142,7 @@ export class Session extends EventEmitter {
       case "taskReply": return this.onTaskReply(frame);
       case "patch": this.patchQueue = this.patchQueue.then(() => this.onPatch(frame)); return;
       case "patchOutcome": return this.onPatchOutcome(frame);
+      case "custom": return this.onCustom(frame);
       default: return this.fail(`unknown type`);
     }
   }
@@ -204,6 +221,27 @@ export class Session extends EventEmitter {
     this.emit("patchOutcome", out);
   }
 
+  private takeCustomRateSlot(times: number[], now = Date.now()): boolean {
+    while (times.length > 0 && times[0]! <= now - 60_000) times.shift();
+    if (times.length >= LIMITS.customMessagesPerMinute) return false;
+    times.push(now);
+    return true;
+  }
+
+  private onCustom(frame: Frame): void {
+    if (typeof frame.type !== "string" || frame.type.length > LIMITS.customTypeLength || !CUSTOM_TYPE.test(frame.type)
+      || !Object.prototype.hasOwnProperty.call(frame, "payload")) return this.fail("bad custom message");
+    if (!this.takeCustomRateSlot(this.receivedCustomMessages)) return this.fail("custom message rate exceeded");
+    if (Buffer.byteLength(JSON.stringify({ seq: frame.seq, t: "custom", type: frame.type, payload: frame.payload }), "utf8") > LIMITS.customMessageBytes) {
+      return this.fail("custom message too large");
+    }
+    const handler = this.customHandlers.get(frame.type);
+    if (!handler) return; // Unknown extensions are deliberately ignored for forward compatibility.
+    void Promise.resolve().then(() => handler(frame.payload)).catch((error: unknown) => {
+      if (!this.ended) this.emit("customError", frame.type as string, error);
+    });
+  }
+
   /** Set a shared context value. Replicated to the peer; last writer wins. */
   setContext(key: string, value: unknown): void {
     const entry: ContextEntry = { value, clock: ++this.clock, by: this.id };
@@ -211,6 +249,33 @@ export class Session extends EventEmitter {
     this.ctx.set(key, entry);
     this.emit("context", key, entry, true);
     this.send({ t: "ctx", key, entry });
+  }
+
+  /** Register an application callback for one namespaced extension type such as `x-myapp/status`. */
+  register(type: string, handler: (payload: unknown) => void | Promise<void>): void {
+    if (typeof type !== "string" || type.length > LIMITS.customTypeLength || !CUSTOM_TYPE.test(type)) {
+      throw new Error("Custom message type must be namespaced (for example, x-myapp/status)");
+    }
+    if (typeof handler !== "function") throw new TypeError("Custom message handler must be a function");
+    if (this.customHandlers.has(type)) throw new Error(`Custom message handler already registered: ${type}`);
+    this.customHandlers.set(type, handler);
+  }
+
+  /** Send JSON-compatible data to a registered extension type, subject to the session size and rate limits. */
+  sendCustom(type: string, payload: unknown): void {
+    if (typeof type !== "string" || type.length > LIMITS.customTypeLength || !CUSTOM_TYPE.test(type)) {
+      throw new Error("Custom message type must be namespaced (for example, x-myapp/status)");
+    }
+    let serialized: string | undefined;
+    try { serialized = JSON.stringify({ seq: this.sendSeq + 1, t: "custom", type, payload }); } catch {
+      throw new TypeError("Custom message payload must be JSON-serializable");
+    }
+    if (typeof serialized !== "string") throw new TypeError("Custom message payload must be JSON-serializable");
+    if (Buffer.byteLength(serialized, "utf8") > LIMITS.customMessageBytes) throw new Error("Custom message too large");
+    const normalized = JSON.parse(serialized) as { payload?: unknown };
+    if (!Object.prototype.hasOwnProperty.call(normalized, "payload")) throw new TypeError("Custom message payload must be JSON-serializable");
+    if (!this.takeCustomRateSlot(this.sentCustomMessages)) throw new Error("Custom message rate limit exceeded");
+    this.send({ t: "custom", type, payload: normalized.payload });
   }
 
   /** Read a shared context value, or `undefined`. */
