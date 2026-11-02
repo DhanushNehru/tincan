@@ -3,7 +3,7 @@ import { mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
-import { createPatch, MAX_MESSAGE_BYTES, type PatchOutcome, type Task } from "../src/index.js";
+import { createPatch, LIMITS, MAX_MESSAGE_BYTES, type PatchOutcome, type Task } from "../src/index.js";
 import { once, pairSessions, startSignaling } from "./helpers.js";
 
 let sig: Awaited<ReturnType<typeof startSignaling>>;
@@ -37,6 +37,65 @@ test("task handoff is delivered, answered, and never executed", async () => {
     const reply = once(p.a, "taskReply");
     p.b.replyToTask({ id, status: "declined", note: "no thanks" });
     assert.deepEqual((await reply)[0], { id, status: "declined", note: "no thanks" });
+  } finally { p.close(); }
+});
+
+test("registered custom messages deliver data without executing it", async () => {
+  const p = await pairSessions(sig.url);
+  try {
+    const payload = { text: "process.exit()", nested: [1, true] };
+    const received = new Promise<unknown>((resolve) => p.b.register("x-example/review", resolve));
+    p.a.sendCustom("x-example/review", payload);
+    assert.deepEqual(await received, payload);
+    assert.throws(() => p.b.register("review", () => undefined), /must be namespaced/);
+    assert.throws(() => p.b.register("x-example/review", () => undefined), /already registered/);
+  } finally { p.close(); }
+});
+
+test("unknown custom types are ignored and leave the session usable", async () => {
+  const p = await pairSessions(sig.url);
+  try {
+    (p.a as unknown as { send(f: object): void }).send({ t: "custom", type: "x-other/future", payload: { safe: true } });
+    const seen = once(p.b, "context");
+    p.a.setContext("still-open", true);
+    await seen;
+    assert.equal(p.b.getContext("still-open"), true);
+  } finally { p.close(); }
+});
+
+test("custom messages enforce payload size and per-minute send limits", async () => {
+  const p = await pairSessions(sig.url);
+  try {
+    assert.throws(() => p.a.sendCustom("x-example/data", "x".repeat(LIMITS.customMessageBytes)), /too large/);
+    assert.throws(() => p.a.sendCustom("x-example/data", undefined), /JSON-serializable/);
+    const circular: Record<string, unknown> = {};
+    circular.self = circular;
+    assert.throws(() => p.a.sendCustom("x-example/data", circular), /JSON-serializable/);
+    for (let i = 0; i < LIMITS.customMessagesPerMinute; i++) p.a.sendCustom("x-example/data", i);
+    assert.throws(() => p.a.sendCustom("x-example/data", "over limit"), /rate limit exceeded/);
+  } finally { p.close(); }
+});
+
+test("oversize custom payloads close the session even for unknown types", async () => {
+  const p = await pairSessions(sig.url);
+  try {
+    const closed = once<[string]>(p.b, "close", 5000);
+    (p.a as unknown as { send(f: object): void }).send({
+      t: "custom", type: "x-unknown/large", payload: "x".repeat(LIMITS.customMessageBytes),
+    });
+    assert.match((await closed)[0], /custom message too large/);
+  } finally { p.close(); }
+});
+
+test("a peer cannot exceed the inbound custom message rate limit", async () => {
+  const p = await pairSessions(sig.url);
+  try {
+    const closed = once<[string]>(p.b, "close", 5000);
+    const hostile = p.a as unknown as { send(f: object): void };
+    for (let i = 0; i <= LIMITS.customMessagesPerMinute; i++) {
+      hostile.send({ t: "custom", type: "x-hostile/ping", payload: i });
+    }
+    assert.match((await closed)[0], /custom message rate exceeded/);
   } finally { p.close(); }
 });
 
