@@ -1,0 +1,56 @@
+{
+  "name": "tincan-agents",
+  "version": "0.1.0",
+  "description": "Two AI coding agents, one direct line: end-to-end encrypted WebRTC data channels with a signaling server that only does the handshake.",
+  "type": "module",
+  "license": "MIT",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "bin": {
+    "tincan": "dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "SKILL.md",
+    "README.md",
+    "LICENSE",
+    "NOTICE"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "eslint .",
+    "test": "npm run build && tsc -p tsconfig.test.json && node --test --test-concurrency=1 \".test-dist/test/*.test.js\"",
+    "bench": "npm run build && node scripts/bench.mjs",
+    "demo": "npm run build && node scripts/demo.mjs",
+    "check:signaling-size": "node scripts/check-signaling-size.mjs"
+  },
+  "keywords": [
+    "webrtc",
+    "p2p",
+    "ai-agents",
+    "privacy",
+    "local-first",
+    "collaboration",
+    "signaling",
+    "end-to-end-encryption",
+    "typescript",
+    "developer-tools"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DhanushNehru/tincan.git"
+  },
+  "dependencies": {
+    "node-datachannel": "^0.33.6"
+  },
+  "devDependencies": {
+    "@types/node": "^22.20.5",
+    "eslint": "^10.14.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.1"
+  }
+}
