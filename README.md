@@ -62,9 +62,14 @@ console.log("tell your peer:", h.code);
 const session = new Session(await h.connected, { name: "alice", workspaceRoot: "./proj", onPatch: ({ preview }) => askHuman(preview) });
 session.on("task", (task) => console.log("peer asks:", task.title));
 session.setContext("goal", "ship v1");
+
+// Both peers register the same extension before sending or receiving it.
+session.register("x-myapp/status", (payload) => console.log("peer status data:", payload));
+session.sendCustom("x-myapp/status", { phase: "review" });
 ```
 
 Every exported function and class has TSDoc. `onPatch` is your consent gate: without it, every incoming patch is rejected.
+Custom message types must be namespaced (`x-myapp/...`). A registered handler receives JSON data as data; tincan never evaluates it. Unregistered extension types are ignored. Custom messages are limited to 64 KiB and 60 per minute in each direction.
 
 ## Install notes
 
